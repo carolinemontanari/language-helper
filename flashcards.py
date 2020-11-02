@@ -1,9 +1,7 @@
 import arabic_reshaper
 import pandas as pd
 import numpy as np
-import sys
 import json
-
 from logging import critical, error, info, warning, debug
 import datetime, random, os, csv
 import xlrd
@@ -22,15 +20,16 @@ def format_df(excelfile, excelsheet):
     df["Sample_Sentence"] = cleaned_arabic_sentence
     # Clean up English Text
     df["English_Def"] = df["English_Def"].str.lower().str.strip()
-    #limiting to columns wanted
+    # limiting to columns wanted
     df = df[
         ["Arabic_Def", "Tense", "English_Def", "Date_Added", "Sample_Sentence", "Root"]
     ]
-    print(df)
+
     return df
 
 
 def reverse_arabic(backwards_column):
+
     cleaned_arabic = []
     for item in backwards_column:
         if item is not None:
@@ -38,6 +37,7 @@ def reverse_arabic(backwards_column):
             reshaped_text = arabic_reshaper.reshape(item)
             reversed_text = reshaped_text[::-1]
             cleaned_arabic.append(reversed_text)
+
     return cleaned_arabic
 
 
@@ -48,16 +48,15 @@ def df_to_sql(df, table_name, db_name):
     c = db_conn.cursor()
     # getting rid of existing table if exists
     c.execute(
-        """
-	DROP TABLE if exists arabic;
+        f"""
+	DROP TABLE if exists {table_name};
 	
 	"""
     )
     # Creating table
-
     c.execute(
-        """
-		CREATE TABLE arabic (
+        f"""
+		CREATE TABLE {table_name} (
 			Arabic_Def TEXT NOT NULL, 
 			English_Def TEXT, 
 			Tense TEXT,
@@ -71,29 +70,26 @@ def df_to_sql(df, table_name, db_name):
     db_conn.close()
 
 
-
-
 def get_current_db(table_name, db_name):
-    #Connect to db
+
+    # Connect to db
     db_conn = sqlite3.connect(db_name)
     c = db_conn.cursor()
     column_name = []
     # This enables column access by name: row['column_name']
-    db_conn.row_factory = (
-        sqlite3  
-    )
+    db_conn.row_factory = sqlite3
     rows = c.execute(
         f"""
 		SELECT rowid, * FROM {table_name}; 
 		"""
     ).fetchall()
-    #get list of column details
+    # get list of column details
     column_details = c.execute(
         f"""
 		PRAGMA table_info({table_name});
 		"""
-    ).fetchall() 
-    #limiting to column names
+    ).fetchall()
+    # limiting to column names
     for item in column_details:
         column_name.append(item[1])
     db_conn.commit()
@@ -103,6 +99,7 @@ def get_current_db(table_name, db_name):
 
 
 def create_dicts(rows, columns):
+
     arabic_dict = {}
     english_dict = {}
     details_dict = {}
@@ -184,7 +181,6 @@ def flash_cards(terms, direction, answer):
                 break
         if guess in ["no", "n", "exit"]:
             break
-
     return guess
 
 
@@ -193,9 +189,12 @@ def generate_question(terms, version):
     print("\n\t", term[version], "\n")
     return term
 
+
 def list_terms(terms):
     for term in terms:
-        print("\n\t", terms[term]['English_Def'], " : ",terms[term]['Arabic_Def'], "\n" )    
+        print(
+            "\n\t", terms[term]["English_Def"], " : ", terms[term]["Arabic_Def"], "\n"
+        )
 
 
 def help(term):
@@ -213,20 +212,17 @@ def find_def(language_Dict, terms):
         wid = language_Dict[lookup]
         details = []
         for key in terms[wid]:
-                print("\t", key, " : ", terms[wid][key], "\n")
-    else:    
+            print("\t", key, " : ", terms[wid][key], "\n")
+    else:
         print("\tDetails Not Found! \n")
 
-
-
     return details
-
 
 
 def main():
     table_name = "arabic"
     database_name = "arabic_fc.db"
-    excel_file = "" 
+    excel_file = ""
     excel_tab = ""
     # df = format_df(excel_file, excel_tab)
     # df_to_sql(df, table_name, database_name)
