@@ -69,6 +69,8 @@ def df_to_sql(df, table_name, db_name):
     df.to_sql(table_name, db_conn, if_exists="append", index=False)
     db_conn.close()
 
+    return None
+
 
 def get_current_db(table_name, db_name):
 
@@ -146,6 +148,8 @@ def card_game(arabic_dict, english_dict, details_dict):
         elif menu == "6":
             exit()
 
+    return None
+
 
 def add_word(terms):
     term = input("\n\tEnter the new term: ").lower()
@@ -156,6 +160,8 @@ def add_word(terms):
     else:
         print("\n\tThat term already exists!")
         input("\n\tPress 'Enter' to return to Main Menu.\n")
+
+    return None
 
 
 def flash_cards(terms, direction, answer):
@@ -181,12 +187,14 @@ def flash_cards(terms, direction, answer):
                 break
         if guess in ["no", "n", "exit"]:
             break
-    return guess
+
+    return None
 
 
 def generate_question(terms, version):
     term = random.choice(terms)
     print("\n\t", term[version], "\n")
+
     return term
 
 
@@ -196,10 +204,13 @@ def list_terms(terms):
             "\n\t", terms[term]["English_Def"], " : ", terms[term]["Arabic_Def"], "\n"
         )
 
+    return None
+
 
 def help(term):
     exclude_keys = ["Arabic_Def", "English_Def"]
     details = {k: term[k] for k in set(list(term.keys())) - set(exclude_keys)}
+
     return details
 
 
@@ -212,9 +223,9 @@ def find_def(language_Dict, terms):
         wid = language_Dict[lookup]
         details = []
         for key in terms[wid]:
-            print("\t", key, " : ", terms[wid][key], "\n")
+            print("\n\t", key, " : ", terms[wid][key], "\n")
     else:
-        print("\tDetails Not Found! \n")
+        print("\n\tDetails Not Found! \n")
 
     return details
 
