@@ -3,27 +3,26 @@ import pandas as pd
 import numpy as np
 import sys
 import json
-# import ipdb
+
 from logging import critical, error, info, warning, debug
-import pickle, datetime, random, os, csv
+import datetime, random, os, csv
 import xlrd
 import sqlite3
 
 
 def format_df():
 
-    excelfile = ""#path
-    sheetname = "" #tab name
+    excelfile = ""  # path
+    sheetname = ""  # tab name
     df = pd.read_excel(excelfile, sheet_name=sheetname)
-    #fix arabic columns
+    # Fix Arabic Columns
     cleaned_arabic_word = reverse_arabic(df["Arabic"])
     cleaned_arabic_sentence = reverse_arabic(df["Sample_Sentence"])
     df.insert(1, "Arabic_Def", cleaned_arabic_word)
     df["Sample_Sentence"] = cleaned_arabic_sentence
-    #lowers all English Translations
+    # Clean up English Text
     df["English_Def"] = df["English_Def"].str.lower().str.strip()
-    # drop misformatted Arabic
-    # df = df.drop(columns=["Arabic"])
+    #limiting to columns wanted
     df = df[
         ["Arabic_Def", "Tense", "English_Def", "Date_Added", "Sample_Sentence", "Root"]
     ]
@@ -35,7 +34,6 @@ def reverse_arabic(backwards_column):
     cleaned_arabic = []
     for item in backwards_column:
         if item is not None:
-            # ipdb.set_trace()
             item = str(item)
             reshaped_text = arabic_reshaper.reshape(item)
             reversed_text = reshaped_text[::-1]
@@ -43,17 +41,12 @@ def reverse_arabic(backwards_column):
     return cleaned_arabic
 
 
-def df_to_sql(df):
+def df_to_sql(df, db_name):
 
-    db_conn = sqlite3.connect("arabic_fc.db")
-    # # cursor to interacte with sql db
+    db_conn = sqlite3.connect(db_name)
+    # cursor to interacte with sql db
     c = db_conn.cursor()
-    c.execute(
-        """
-		DROP TABLE if exists Arabic;
-		
-		"""
-    )
+    # getting rid of existing table if exists
     c.execute(
         """
 	DROP TABLE if exists arabic;
@@ -81,23 +74,27 @@ def df_to_sql(df):
     return sqlite_table
 
 
-def get_current_db(json_str=False):
-    db_conn = sqlite3.connect("arabic_fc.db")
+def get_current_db(db_name):
+    #Connect to db
+    db_conn = sqlite3.connect(db_name)
     c = db_conn.cursor()
     column_name = []
+    # This enables column access by name: row['column_name']
     db_conn.row_factory = (
-        sqlite3  # This enables column access by name: row['column_name']
+        sqlite3  
     )
     rows = c.execute(
         """
 		SELECT rowid, * FROM arabic; 
 		"""
     ).fetchall()
+    #get list of column details
     column_details = c.execute(
         """
 		PRAGMA table_info(arabic);
 		"""
-    ).fetchall()
+    ).fetchall() 
+    #limiting to column names
     for item in column_details:
         column_name.append(item[1])
     db_conn.commit()
@@ -118,27 +115,21 @@ def create_dicts(rows, columns):
         inner_dict = dict(zip(columns, row[1::]))
         details_dict[strid] = inner_dict
 
-    print(details_dict)
-
     return arabic_dict, english_dict, details_dict
 
 
 def card_game(arabic_dict, english_dict, details_dict):
     terms = details_dict
-    print(terms)
-
     menu = None
     while menu != "6":
         print(
             """
 
-	   	STUDY HELPER!
+	   	ARABIC STUDY ASSISTANT!
 
 	    1 - List Words and Definitions
 	    2 - Find Arabic Translation
-	    3 - Add Term
 	    4 - Arabic to English Game
-	    5 - English to Arabic Game
 	    6 - Exit
 
 	    """
@@ -146,12 +137,10 @@ def card_game(arabic_dict, english_dict, details_dict):
         menu = input("\t\t\tEnter Menu option: ")
         if menu == "1":  # List Terms
             print("\n")
-            for term in terms:
-                print(term, " : ", terms[term])
+            list_terms(terms)
             input("\n\tPress 'Enter' to return to Main Menu.\n")
         elif menu == "2":  # Find Term
             details = find_def(english_dict, terms)
-            print("\t", details)
         elif menu == "3":  # Add Term
             add_word()
         elif menu == "4":  # Work on Arabic to English
@@ -194,7 +183,7 @@ def flash_cards(terms, direction, answer):
                 term = generate_question(terms, direction)
             else:
                 break
-        if guess in ['no', 'n', 'exit']:
+        if guess in ["no", "n", "exit"]:
             break
 
     return guess
@@ -204,6 +193,10 @@ def generate_question(terms, version):
     term = random.choice(terms)
     print("\n\t", term[version], "\n")
     return term
+
+def list_terms(terms):
+    for term in terms:
+        print("\n\t", terms[term]['English_Def'], " : ",terms[term]['Arabic_Def'], "\n" )    
 
 
 def help(term):
@@ -221,42 +214,21 @@ def find_def(language_Dict, terms):
         wid = language_Dict[lookup]
         details = []
         for key in terms[wid]:
-            details.append(str(key) + " : " + str(terms[wid][key]))
+                print("\t", key, " : ", terms[wid][key], "\n")
+    else:    
+        print("\tDetails Not Found! \n")
 
-    # print("\tWord not Found!")
+
 
     return details
 
 
-# print '\nYour score is:', score
-def parse_arguments():
-    """Read arguments from a command line."""
-    parser = argparse.ArgumentParser(description="Arguments get parsed via --commands")
-    parser.add_argument(
-        "-v",
-        metavar="verbosity",
-        type=int,
-        default=2,
-        help="Verbosity of logging: 0 -critical, 1- error, 2 -warning, 3 -info, 4 -debug",
-    )
-
-    args = parser.parse_args()
-    verbose = {
-        0: logging.CRITICAL,
-        1: logging.ERROR,
-        2: logging.WARNING,
-        3: logging.INFO,
-        4: logging.DEBUG,
-    }
-    logging.basicConfig(format="%(message)s", level=verbose[args.v], stream=sys.stdout)
-
-    return args
-
 
 def main():
-    df = format_df()
-    table = df_to_sql(df)
-    table, columns = get_current_db()
+    database_name ="arabic_fc.db"
+    # df = format_df()
+    # table = df_to_sql(df, database_name)
+    table, columns = get_current_db(database_name)
     arabic, english, details = create_dicts(table, columns)
     card_game(arabic, english, details)
 
