@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import sys
 import json
-import ipdb
+# import ipdb
 from logging import critical, error, info, warning, debug
 import pickle, datetime, random, os, csv
 import xlrd
@@ -11,16 +11,17 @@ import sqlite3
 
 
 def format_df():
-    df = pd.read_excel("Arabic_Lessons.xlsx", sheet_name="Full_Set")
 
-    # breakpoint()
-
-    # df.index= df.index.str.encode('utf-8')
+    excelfile = ""#path
+    sheetname = "" #tab name
+    df = pd.read_excel(excelfile, sheet_name=sheetname)
+    #fix arabic columns
     cleaned_arabic_word = reverse_arabic(df["Arabic"])
     cleaned_arabic_sentence = reverse_arabic(df["Sample_Sentence"])
     df.insert(1, "Arabic_Def", cleaned_arabic_word)
     df["Sample_Sentence"] = cleaned_arabic_sentence
-    df["English_Def"] = df["English_Def"].str.lower()
+    #lowers all English Translations
+    df["English_Def"] = df["English_Def"].str.lower().str.strip()
     # drop misformatted Arabic
     # df = df.drop(columns=["Arabic"])
     df = df[
@@ -146,11 +147,11 @@ def card_game(arabic_dict, english_dict, details_dict):
         if menu == "1":  # List Terms
             print("\n")
             for term in terms:
-                print(term, " : ",terms[term])
+                print(term, " : ", terms[term])
             input("\n\tPress 'Enter' to return to Main Menu.\n")
         elif menu == "2":  # Find Term
             details = find_def(english_dict, terms)
-            print("\t",details)
+            print("\t", details)
         elif menu == "3":  # Add Term
             add_word()
         elif menu == "4":  # Work on Arabic to English
@@ -177,33 +178,37 @@ def flash_cards(terms, direction, answer):
     term = generate_question(terms, direction)
     guess = None
     details = None
-    while guess != "exit":
+    while True:
         guess = input("\tWhat is the translation? ").strip().lower()
         if guess == "show":
             print(term[answer])
             term = generate_question(terms, direction)
         if guess == "help":
-            details= help(term)
-            for item in details:  
-                print("\t",item," : ",details[item],"\n")
-            term = term 
+            details = help(term)
+            for item in details:
+                print("\t", item, " : ", details[item], "\n")
+            term = term
         if guess == term[answer]:
             print("Correct!")
-            if input("\tAnother word?") in ["y", "yes"]:
+            if input("\tAnother word?(yes/no)") in ["y", "yes"]:
                 term = generate_question(terms, direction)
+            else:
+                break
+        if guess in ['no', 'n', 'exit']:
+            break
 
     return guess
 
 
 def generate_question(terms, version):
     term = random.choice(terms)
-    print("\n\t",term[version],"\n")
+    print("\n\t", term[version], "\n")
     return term
 
 
 def help(term):
-    exclude_keys =['Arabic_Def', 'English_Def']
-    details={k: term[k] for k in set(list(term.keys())) - set(exclude_keys)}
+    exclude_keys = ["Arabic_Def", "English_Def"]
+    details = {k: term[k] for k in set(list(term.keys())) - set(exclude_keys)}
     return details
 
 
@@ -249,16 +254,12 @@ def parse_arguments():
 
 
 def main():
-    # df = format_df()
-    # breakpoint()
-    # table = df_to_sql(df)
-    # json_table = get_current_db(json_str = True)
+    df = format_df()
+    table = df_to_sql(df)
     table, columns = get_current_db()
     arabic, english, details = create_dicts(table, columns)
-    # dict_of_terms =retro_dictify(df_of_terms)
     card_game(arabic, english, details)
 
 
 if __name__ == "__main__":
-    # args= parse_arguments()
     main()
