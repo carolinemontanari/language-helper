@@ -10,10 +10,10 @@ import xlrd
 import sqlite3
 
 
-def format_df():
+def format_df(excelfile, excelsheet):
 
-    excelfile = ""  # path
-    sheetname = ""  # tab name
+    excelfile = excelfile  # path
+    sheetname = excelsheet  # tab name
     df = pd.read_excel(excelfile, sheet_name=sheetname)
     # Fix Arabic Columns
     cleaned_arabic_word = reverse_arabic(df["Arabic"])
@@ -41,7 +41,7 @@ def reverse_arabic(backwards_column):
     return cleaned_arabic
 
 
-def df_to_sql(df, db_name):
+def df_to_sql(df, table_name, db_name):
 
     db_conn = sqlite3.connect(db_name)
     # cursor to interacte with sql db
@@ -67,14 +67,13 @@ def df_to_sql(df, db_name):
 			);
 		"""
     )
-    sqlite_table = "arabic"
-    df.to_sql(sqlite_table, db_conn, if_exists="append", index=False)
+    df.to_sql(table_name, db_conn, if_exists="append", index=False)
     db_conn.close()
 
-    return sqlite_table
 
 
-def get_current_db(db_name):
+
+def get_current_db(table_name, db_name):
     #Connect to db
     db_conn = sqlite3.connect(db_name)
     c = db_conn.cursor()
@@ -84,14 +83,14 @@ def get_current_db(db_name):
         sqlite3  
     )
     rows = c.execute(
-        """
-		SELECT rowid, * FROM arabic; 
+        f"""
+		SELECT rowid, * FROM {table_name}; 
 		"""
     ).fetchall()
     #get list of column details
     column_details = c.execute(
-        """
-		PRAGMA table_info(arabic);
+        f"""
+		PRAGMA table_info({table_name});
 		"""
     ).fetchall() 
     #limiting to column names
@@ -225,11 +224,14 @@ def find_def(language_Dict, terms):
 
 
 def main():
-    database_name ="arabic_fc.db"
-    # df = format_df()
-    # table = df_to_sql(df, database_name)
-    table, columns = get_current_db(database_name)
-    arabic, english, details = create_dicts(table, columns)
+    table_name = "arabic"
+    database_name = "arabic_fc.db"
+    excel_file = "" 
+    excel_tab = ""
+    # df = format_df(excel_file, excel_tab)
+    # df_to_sql(df, table_name, database_name)
+    data, column_names = get_current_db(table_name, database_name)
+    arabic, english, details = create_dicts(data, column_names)
     card_game(arabic, english, details)
 
 
