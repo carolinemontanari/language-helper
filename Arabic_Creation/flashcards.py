@@ -303,25 +303,7 @@ def int_ar(numbers, num, join=True):
 
 
 def main():
-    dict_table_name = "arabic_dict"
-    num_table_name = "numbers"
-    database_name = "arabic_fc_b.db"
-    # excel_file = ""
-    # excel_tab = ""
-    # # If modifying these scopes, delete the file token.pickle.
-    # scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-
-    # # The ID of a sample document.
-    # documentid = "1v2tsmas6zd8H_1xHjNP6sSkUQdRMUKi9qH5VhkzSwJQ"
-    # number_sheet = "numbers"
-    # dictionary_sheet = "full_set"
-    # num_columns, num_rows = google_sheets(scopes, documentid, number_sheet)
-    # def_columns, def_rows =google_sheets(scopes, documentid, dictionary_sheet)
-    # # breakpoint()
-    # details =noindex_create_dicts(def_rows, def_columns)
-    # details_num = noindex_create_dicts(num_rows, num_columns)
-    # dict_to_sql(details_num, num_table_name,database_name)
-    # dict_to_sql(details, dict_table_name, database_name)
+   
     numbers, num_column_names = get_current_db(num_table_name, database_name)
     data, column_names = get_current_db(dict_table_name, database_name)
     num_dict = num_list(numbers)
