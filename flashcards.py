@@ -1,79 +1,19 @@
-import arabic_reshaper
-import pandas as pd
-import numpy as np
-import json
-from logging import critical, error, info, warning, debug
-import datetime, random, os, csv
-import xlrd
+import random
 import sqlite3
+from collections import namedtuple
+from sql_db_creation import *
 
 
-def format_df(excelfile, excelsheet):
-
-    excelfile = excelfile  # path
-    sheetname = excelsheet  # tab name
-    df = pd.read_excel(excelfile, sheet_name=sheetname)
-    # Fix Arabic Columns
-    cleaned_arabic_word = reverse_arabic(df["Arabic"])
-    cleaned_arabic_sentence = reverse_arabic(df["Sample_Sentence"])
-    df.insert(1, "Arabic_Def", cleaned_arabic_word)
-    df["Sample_Sentence"] = cleaned_arabic_sentence
-    # Clean up English Text
-    df["English_Def"] = df["English_Def"].str.lower().str.strip()
-    # limiting to columns wanted
-    df = df[
-        ["Arabic_Def", "Tense", "English_Def", "Date_Added", "Sample_Sentence", "Root"]
-    ]
-
-    return df
-
-
-def reverse_arabic(backwards_column):
-
-    cleaned_arabic = []
-    for item in backwards_column:
-        if item is not None:
-            item = str(item)
-            reshaped_text = arabic_reshaper.reshape(item)
-            reversed_text = reshaped_text[::-1]
-            cleaned_arabic.append(reversed_text)
-
-    return cleaned_arabic
-
-
-def df_to_sql(df, table_name, db_name):
-
-    db_conn = sqlite3.connect(db_name)
-    # cursor to interacte with sql db
-    c = db_conn.cursor()
-    # getting rid of existing table if exists
-    c.execute(
-        f"""
-	DROP TABLE if exists {table_name};
-	
-	"""
-    )
-    # Creating table
-    c.execute(
-        f"""
-		CREATE TABLE {table_name} (
-			Arabic_Def TEXT NOT NULL, 
-			English_Def TEXT, 
-			Tense TEXT,
-			Date_Added DATE,
-			Sample_Sentence TEXT,
-			Root TEXT	
-			);
-		"""
-    )
-    df.to_sql(table_name, db_conn, if_exists="append", index=False)
-    db_conn.close()
-
-    return None
+class performance:
+    date: str
+    game: str
+    word: str
+    correct: bool
+    guesses: int
 
 
 def get_current_db(table_name, db_name):
-
+    """ connect to current database and return contents of specified table"""
     # Connect to db
     db_conn = sqlite3.connect(db_name)
     c = db_conn.cursor()
@@ -100,24 +40,55 @@ def get_current_db(table_name, db_name):
     return rows, column_name
 
 
+def num_list(rows):
+    """ format number table into necessary small dictionary"""
+    english_num = []
+    arabic_num = []
+    for row in rows:
+        english_num.append(int(row[1]))
+        arabic_num.append(row[3])
+    arabic_num_dict = dict(zip(english_num, arabic_num))
+
+    return arabic_num_dict
+
+
 def create_dicts(rows, columns):
+    """ creating dictionary from dictonary table"""
 
     arabic_dict = {}
     english_dict = {}
     details_dict = {}
+    arabic_column = columns[0]
+    english_column = columns[1]
+
     for row in rows:
+
         strid = row[0]
         arabic_dict[row[1]] = strid
         english_dict[row[2]] = strid
-        # ipdb.set_trace()
-        inner_dict = dict(zip(columns, row[1::]))
+        inner_dict = dict(zip(columns[0::], row[1::]))
         details_dict[strid] = inner_dict
 
-    return arabic_dict, english_dict, details_dict
+    return arabic_dict, english_dict, details_dict, arabic_column, english_column
 
 
-def card_game(arabic_dict, english_dict, details_dict):
+def noindex_create_dicts(rows, columns):
+    """ creating dictionary from dictonary table"""
+    details_dict = {}
+    for row in rows:
+        strid = row[0]
+        inner_dict = dict(zip(columns[0::], row[0::]))
+        details_dict[strid] = inner_dict
+    # breakpoint()
+    return details_dict
+
+
+def card_game(
+    arabic_dict, english_dict, details_dict, arabic_column, english_column, numbers
+):
+    """ base section of study assistant printed in console"""
     terms = details_dict
+    print(terms)
     menu = None
     while menu != "6":
         print(
@@ -127,6 +98,7 @@ def card_game(arabic_dict, english_dict, details_dict):
 
 	    1 - List Words and Definitions
 	    2 - Find Arabic Translation
+        3 - Get Numbers
 	    4 - Arabic to English Game
 	    6 - Exit
 
@@ -135,23 +107,22 @@ def card_game(arabic_dict, english_dict, details_dict):
         menu = input("\t\t\tEnter Menu option: ")
         if menu == "1":  # List Terms
             print("\n")
-            list_terms(terms)
+            list_terms(terms, arabic_column, english_column)
             input("\n\tPress 'Enter' to return to Main Menu.\n")
         elif menu == "2":  # Find Term
             details = find_def(english_dict, terms)
         elif menu == "3":  # Add Term
-            add_word()
+            guess_the_number(numbers)
         elif menu == "4":  # Work on Arabic to English
-            flash_cards(terms, "Arabic_Def", "English_Def")
+            flash_cards(terms, arabic_column, english_column)
         elif menu == "5":  # Work on English to Arabic
-            flash_cards(terms, "English_Def", "Arabic_Def")
+            flash_cards(terms, english_column, arabic_column)
         elif menu == "6":
             exit()
 
-    return None
-
 
 def add_word(terms):
+    """add word to database """
     term = input("\n\tEnter the new term: ").lower()
     if term not in terms:
         definition = input("\tWhat is the definition? ").lower
@@ -165,22 +136,28 @@ def add_word(terms):
 
 
 def flash_cards(terms, direction, answer):
+    """flash card game"""
     print("\n\t\tType 'Exit' to return to Menu\n")
     term = generate_question(terms, direction)
     guess = None
     details = None
+    n = 0
     while True:
+
         guess = input("\tWhat is the translation? ").strip().lower()
+        n = +1
         if guess == "show":
+            # performance("",direction, term[answer], 0, n )
             print(term[answer])
             term = generate_question(terms, direction)
         if guess == "help":
-            details = help(term)
+            details = help(term, direction, answer)
             for item in details:
                 print("\t", item, " : ", details[item], "\n")
             term = term
         if guess == term[answer]:
             print("Correct!")
+            # performance("",direction, term[answer], 1, n )
             if input("\tAnother word?(yes/no)") in ["y", "yes"]:
                 term = generate_question(terms, direction)
             else:
@@ -192,29 +169,33 @@ def flash_cards(terms, direction, answer):
 
 
 def generate_question(terms, version):
+    """ getting random word from dict"""
     term = random.choice(terms)
     print("\n\t", term[version], "\n")
 
     return term
 
 
-def list_terms(terms):
+def list_terms(terms, arabic_column, english_column):
+    """ list all terms in dict"""
     for term in terms:
         print(
-            "\n\t", terms[term]["English_Def"], " : ", terms[term]["Arabic_Def"], "\n"
+            "\n\t", terms[term][english_column], " : ", terms[term][arabic_column], "\n"
         )
 
     return None
 
 
-def help(term):
-    exclude_keys = ["Arabic_Def", "English_Def"]
+def help(term, arabic_column, english_column):
+    """ show all details of word"""
+    exclude_keys = [arabic_column, english_column]
     details = {k: term[k] for k in set(list(term.keys())) - set(exclude_keys)}
 
     return details
 
 
 def find_def(language_Dict, terms):
+    """ input word you're looking for and search dict"""
     word_to_find = input("\t Type word you're looking for and press enter: ")
     lookup = word_to_find.strip()
     str1 = " "
@@ -230,16 +211,128 @@ def find_def(language_Dict, terms):
     return details
 
 
+def guess_the_number(numbers):
+    """inputted number"""
+    print("\tEnter 'exit' to return to main menu")
+    num = None
+    while True:
+        num = input("\n\tEnter number: ").strip().replace(",", "")
+        if num in ["no", "n", "exit", ""]:
+            break
+        else:
+            try:
+                formatted_num = int_ar(numbers, num)
+                print(formatted_num)
+            except:
+                print("not a valid number!")
+
+
+def int_ar(numbers, num, join=True):
+    """get written arabic of inputted number"""
+    d = numbers
+    k = 1000
+    ks = k * 10
+    m = k * 1000
+    b = m * 1000
+    num = int(num)
+
+    if int(str(num)[0]) == 2:
+        hundred = d[200]
+        thousand = d[2_000]
+        thousands = d[10_000]
+        millions = d[2_000_000]
+    else:
+        hundred = d[100]
+        thousand = d[1_000]
+        thousands = d[10_000]
+        millions = d[1_000_000]
+
+    if num < 21:
+        arabic = d[num]
+
+    elif num < 100:
+        if num % 10 == 0:
+            arabic = d[num]
+        else:
+            arabic = d[num // 10 * 10] + " " + d[num % 10]
+
+    elif num < k:
+        if num % 100 == 0:
+            arabic = hundred
+            if hundred > d[200]:
+                arabic = hundred + " " + d[num // 100]
+        else:
+            next_level = int_ar(numbers, num % 100)
+            arabic = next_level + " ؤ " + hundred
+            if hundred != d[200]:
+                arabic = next_level + " ؤ " + hundred + " " + d[num // 100]
+
+    elif num < ks:
+        if num % k == 0:
+            next_level = int_ar(numbers, num // k)
+            arabic = thousand
+            if thousand != d[2_000]:
+                arabic = hundred + " " + next_level
+        else:
+            next_level = int_ar(numbers, num % k)
+            last_level = int_ar(numbers, num // k)
+            arabic = next_level + " ؤ  " + thousand
+            if thousand != d[2_000]:
+                arabic = next_level + " ؤ  " + thousand + " " + last_level
+
+    elif num < m:
+        if num % k == 0:
+            next_level = int_ar(numbers, num // k)
+            arabic = thousands + " " + next_level
+        else:
+            next_level = int_ar(numbers, num % k)
+            last_level = int_ar(numbers, num // k)
+            arabic = next_level + " ؤ  " + thousands + " " + last_level
+    elif num < b:
+        if num % k == 0:
+            next_level = int_ar(numbers, num // k)
+            arabic = thousands + " " + next_level
+        else:
+            next_level = int_ar(numbers, num % k)
+            last_level = int_ar(numbers, num // k)
+            arabic = next_level + " ؤ  " + thousands + " " + last_level
+
+    # raise AssertionError("num is too large: %s" % str(num))
+
+    return arabic
+
+
 def main():
-    table_name = "arabic"
-    database_name = "arabic_fc.db"
-    excel_file = ""
-    excel_tab = ""
-    # df = format_df(excel_file, excel_tab)
-    # df_to_sql(df, table_name, database_name)
-    data, column_names = get_current_db(table_name, database_name)
-    arabic, english, details = create_dicts(data, column_names)
-    card_game(arabic, english, details)
+    dict_table_name = "arabic_dict"
+    num_table_name = "numbers"
+    database_name = "arabic_fc_b.db"
+    # excel_file = ""
+    # excel_tab = ""
+    # # If modifying these scopes, delete the file token.pickle.
+    # scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+    # # The ID of a sample document.
+    # documentid = "1v2tsmas6zd8H_1xHjNP6sSkUQdRMUKi9qH5VhkzSwJQ"
+    # number_sheet = "numbers"
+    # dictionary_sheet = "full_set"
+    # num_columns, num_rows = google_sheets(scopes, documentid, number_sheet)
+    # def_columns, def_rows =google_sheets(scopes, documentid, dictionary_sheet)
+    # # breakpoint()
+    # details =noindex_create_dicts(def_rows, def_columns)
+    # details_num = noindex_create_dicts(num_rows, num_columns)
+    # dict_to_sql(details_num, num_table_name,database_name)
+    # dict_to_sql(details, dict_table_name, database_name)
+    numbers, num_column_names = get_current_db(num_table_name, database_name)
+    data, column_names = get_current_db(dict_table_name, database_name)
+    num_dict = num_list(numbers)
+    # breakpoint()
+    arabic, english, details, arabic_column, english_column = create_dicts(
+        data, column_names
+    )
+
+    # guess_the_number(num_dict)
+
+    card_game(arabic, english, details, arabic_column, english_column, num_dict)
 
 
 if __name__ == "__main__":
