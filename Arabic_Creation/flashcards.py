@@ -258,27 +258,28 @@ def int_ar(numbers, num, join=True):
 
     elif num < k:
         if num % 100 == 0:
-            arabic = hundred
-            if hundred > d[200]:
-                arabic = hundred + " " + d[num // 100]
+            arabic = hundred + " " + d[num // 100]
+            if hundred == d[200] or int(str(num)[0])==1:
+                arabic = hundred 
+                
         else:
             next_level = int_ar(numbers, num % 100)
-            arabic = next_level + " ؤ " + hundred
-            if hundred != d[200]:
-                arabic = next_level + " ؤ " + hundred + " " + d[num // 100]
+            arabic = next_level + " ؤ " + hundred + " " + d[num // 100]
+            if hundred == d[200]or int(str(num)[0])==1:
+                arabic = next_level + " ؤ " + hundred
 
     elif num < ks:
         if num % k == 0:
             next_level = int_ar(numbers, num // k)
-            arabic = thousand
-            if thousand != d[2_000]:
-                arabic = hundred + " " + next_level
+            arabic = hundred + " " + next_level
+            if thousand == d[2_000] or int(str(num)[0])==1:
+                arabic = thousand
         else:
             next_level = int_ar(numbers, num % k)
             last_level = int_ar(numbers, num // k)
-            arabic = next_level + " ؤ  " + thousand
-            if thousand != d[2_000]:
-                arabic = next_level + " ؤ  " + thousand + " " + last_level
+            arabic = next_level + " ؤ  " + thousand + " " + last_level
+            if thousand == d[2_000] or int(str(num)[0])==1:
+                arabic = next_level + " ؤ  " + thousand             
 
     elif num < m:
         if num % k == 0:
@@ -303,7 +304,9 @@ def int_ar(numbers, num, join=True):
 
 
 def main():
-   
+    dict_table_name = "arabic_dict"
+    num_table_name = "numbers"
+    database_name = "arabic_fc_b.db"   
     numbers, num_column_names = get_current_db(num_table_name, database_name)
     data, column_names = get_current_db(dict_table_name, database_name)
     num_dict = num_list(numbers)
