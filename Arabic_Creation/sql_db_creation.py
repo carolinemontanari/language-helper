@@ -1,13 +1,13 @@
 from __future__ import print_function
-import pickle
+import os
 import os.path
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+import pickle
+import sqlite3
 import arabic_reshaper
 import pandas as pd
-import os
-import sqlite3
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 
 def reverse_arabic(backwards_word):
@@ -55,8 +55,6 @@ def df_to_sql(df, table_name, db_name):
     # Creating table
     df.to_sql(table_name, db_conn, if_exists="append", index=False)
     db_conn.close()
-
-    return None
 
 
 def dict_to_sql(dict_name, table_name, db_name):
@@ -117,8 +115,6 @@ def dict_to_sql(dict_name, table_name, db_name):
     # ne
     # df.to_sql(table_name, db_conn, if_exists="append", index=False)
     db_conn.close()
-
-    return None
 
 
 def google_sheets(SCOPES, documentid, rangeid):
